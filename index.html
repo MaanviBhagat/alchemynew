@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Alchemist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0f14;
+    --panel:#171a24;
+    --panel-2:#1f2330;
+    --line:#2c3142;
+    --text:#e9e7df;
+    --muted:#8b90a3;
+    --accent:#7cb518;
+    --accent2:#f2b705;
+    --danger:#e05252;
+    --good:#4fd18a;
+  }
+  body[data-theme="forest"]{ --accent:#7cb518; --accent2:#f2b705; }
+  body[data-theme="cavern"]{ --accent:#9d4edd; --accent2:#00e5ff; }
+  body[data-theme="sky"]{ --accent:#5aa9c9; --accent2:#ffb56b; }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.04), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'VT323', monospace;
+    font-size:20px;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px 12px;
+  }
+  .pixel-font{ font-family:'Press Start 2P', monospace; }
+  img, canvas{ image-rendering:pixelated; image-rendering:crisp-edges; }
+  button{ font-family:'VT323', monospace; font-size:18px; cursor:pointer; }
+  button:focus-visible, .chip:focus-visible, .card:focus-visible{
+    outline:3px solid var(--accent2); outline-offset:2px;
+  }
+  .hidden{ display:none !important; }
+
+  /* ---------- START SCREEN ---------- */
+  #app{ width:100%; max-width:920px; }
+  .title-wrap{ text-align:center; margin-bottom:28px; }
+  .title-wrap h1{
+    font-size:32px;
+    margin:0 0 10px;
+    letter-spacing:2px;
+    color:var(--text);
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.5), 0 0 22px rgba(124,181,24,0.25);
+  }
+  .title-wrap p{ color:var(--muted); font-size:22px; margin:0; }
+
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  @media(max-width:760px){ .cards{ grid-template-columns:1fr; } }
+
+  .card{
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:2px solid var(--line);
+    border-radius:4px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:10px;
+    text-align:left;
+    position:relative;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.35);
+  }
+  .card canvas{ align-self:center; }
+  .card h2{ font-size:14px; margin:4px 0 0; line-height:1.5; }
+  .card p{ color:var(--muted); font-size:18px; margin:0; min-height:78px; }
+  .card button{
+    margin-top:auto;
+    background:var(--accent);
+    color:#0d0f14;
+    border:none;
+    padding:10px 12px;
+    font-weight:bold;
+    border-radius:3px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.4);
+  }
+  .card button:hover{ filter:brightness(1.1); }
+  .card .tag{
+    position:absolute; top:10px; right:10px;
+    font-family:'Press Start 2P'; font-size:8px;
+    background:rgba(0,0,0,0.35); color:var(--accent2);
+    padding:4px 6px; border-radius:3px;
+  }
+
+  /* ---------- GAME SCREEN ---------- */
+  #game{ width:100%; max-width:920px; }
+  .hud{
+    display:flex; align-items:center; gap:14px;
+    background:var(--panel); border:2px solid var(--line); border-radius:4px;
+    padding:10px 14px; margin-bottom:10px; flex-wrap:wrap;
+  }
+  .hud .story-name{ font-family:'Press Start 2P'; font-size:11px; color:var(--accent2); }
+  .hud .goal{ color:var(--muted); flex:1; min-width:180px; }
+  .hud .goal b{ color:var(--text); }
+  .hud button{
+    background:var(--panel-2); color:var(--text); border:2px solid var(--line);
+    border-radius:3px; padding:6px 10px;
+  }
+  .hud button:hover{ border-color:var(--accent); color:var(--accent2); }
+
+  .stage{ position:relative; }
+  #worldCanvas{
+    display:block; width:100%; height:auto;
+    border:2px solid var(--line); border-radius:4px;
+    background:#111;
+  }
+  #floatingText{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .float-msg{
+    position:absolute; font-family:'Press Start 2P'; font-size:10px;
+    color:var(--good); text-shadow:2px 2px 0 rgba(0,0,0,0.6);
+    animation: floatUp 1s ease-out forwards;
+  }
+  @keyframes floatUp{
+    from{ opacity:1; transform:translateY(0); }
+    to{ opacity:0; transform:translateY(-30px); }
+  }
+
+  .toast{
+    margin-top:10px; background:var(--panel); border:2px solid var(--line);
+    border-left:4px solid var(--accent); border-radius:4px; padding:10px 14px;
+    color:var(--muted); min-height:20px;
+  }
+  .toast b{ color:var(--text); }
+
+  .inv-bar{
+    margin-top:10px; background:var(--panel); border:2px solid var(--line); border-radius:4px;
+    padding:10px; display:flex; gap:8px; overflow-x:auto;
+  }
+  .inv-slot{
+    flex:0 0 auto; width:56px; text-align:center; color:var(--muted); font-size:14px;
+  }
+  .inv-slot canvas{ display:block; margin:0 auto 2px; }
+
+  .controls-hint{ color:var(--muted); font-size:16px; margin-top:8px; text-align:center; }
+  .controls-hint kbd{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:3px;
+    padding:1px 6px; font-family:'VT323'; color:var(--text);
+  }
+
+  /* ---------- MODAL ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(6,7,10,0.78);
+    display:flex; align-items:center; justify-content:center; padding:16px; z-index:50;
+  }
+  .modal{
+    background:var(--panel); border:2px solid var(--line); border-radius:6px;
+    width:100%; max-width:640px; max-height:90vh; overflow-y:auto;
+    padding:20px;
+  }
+  .modal h3{ font-family:'Press Start 2P'; font-size:14px; margin:0 0 14px; color:var(--accent2); }
+  .modal .close-x{
+    float:right; background:none; border:none; color:var(--muted); font-size:22px; line-height:1;
+  }
+  .modal .close-x:hover{ color:var(--danger); }
+
+  .cauldron-wrap{ display:flex; align-items:center; justify-content:center; gap:18px; margin:10px 0 18px; flex-wrap:wrap; }
+  .slot{
+    width:64px; height:64px; border:2px dashed var(--line); border-radius:6px;
+    display:flex; align-items:center; justify-content:center; background:var(--panel-2);
+    cursor:pointer;
+  }
+  .slot.filled{ border-style:solid; border-color:var(--accent); }
+  .plus, .arrow{ font-size:26px; color:var(--muted); }
+
+  .combine-btn{
+    display:block; margin:0 auto 16px; background:var(--accent2); color:#141414;
+    border:none; padding:10px 22px; border-radius:4px; font-weight:bold;
+    box-shadow:0 3px 0 rgba(0,0,0,0.4);
+  }
+  .combine-btn:hover{ filter:brightness(1.1); }
+  .clear-btn{ background:none; border:1px solid var(--line); color:var(--muted); border-radius:4px; padding:6px 12px; margin:0 auto 16px; display:block; }
+
+  .inv-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(64px,1fr)); gap:8px;
+    padding:10px; background:var(--panel-2); border:1px solid var(--line); border-radius:4px;
+  }
+  .chip{
+    background:var(--panel); border:2px solid var(--line); border-radius:4px;
+    padding:6px 4px; text-align:center; color:var(--muted); font-size:14px;
+  }
+  .chip canvas{ display:block; margin:0 auto 2px; }
+  .chip.selected{ border-color:var(--accent2); color:var(--text); }
+  .chip:hover{ border-color:var(--accent); }
+
+  .notes{ margin-top:16px; padding-top:12px; border-top:1px solid var(--line); }
+  .notes h4{ font-size:12px; font-family:'Press Start 2P'; color:var(--muted); margin:0 0 8px; }
+  .notes ul{ margin:0; padding-left:20px; color:var(--muted); font-size:17px; }
+  .discovered{ margin-top:14px; }
+  .discovered .row{ color:var(--good); font-size:16px; }
+
+  /* victory */
+  .victory h3{ color:var(--good); }
+  .victory p{ font-size:20px; line-height:1.5; }
+  .victory button{
+    background:var(--accent); color:#0d0f14; border:none; padding:10px 18px;
+    border-radius:4px; font-weight:bold; box-shadow:0 3px 0 rgba(0,0,0,0.4);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="screen-start">
+    <div class="title-wrap">
+      <h1 class="pixel-font">PIXEL ALCHEMIST</h1>
+      <p>Gather. Combine. Discover. Choose your story.</p>
+    </div>
+    <div class="cards" id="cardRow"></div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game" class="hidden">
+    <div class="hud">
+      <div class="story-name" id="hudStoryName">STORY</div>
+      <div class="goal" id="hudGoal">Goal: --</div>
+      <button id="btnLab">⚗ Alchemy Lab</button>
+      <button id="btnHelp">? Help</button>
+      <button id="btnRestart">↺ New Story</button>
+    </div>
+    <div class="stage">
+      <canvas id="worldCanvas"></canvas>
+      <div id="floatingText"></div>
+    </div>
+    <div class="toast" id="toast">Welcome!</div>
+    <div class="inv-bar" id="invBar"></div>
+    <div class="controls-hint">Move: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows &nbsp;|&nbsp; Click a tile next to you to gather</div>
+  </div>
+
+</div>
+
+<!-- LAB MODAL -->
+<div class="overlay hidden" id="labOverlay">
+  <div class="modal">
+    <button class="close-x" id="closeLab">×</button>
+    <h3>ALCHEMY LAB</h3>
+    <div class="cauldron-wrap">
+      <div class="slot" id="slot0"></div>
+      <div class="plus">+</div>
+      <div class="slot" id="slot1"></div>
+      <div class="arrow">→</div>
+      <div class="slot" id="slotResult"></div>
+    </div>
+    <button class="combine-btn" id="btnCombine">Combine</button>
+    <button class="clear-btn" id="btnClearSlots">Clear selection</button>
+    <div class="inv-grid" id="labInv"></div>
+    <div class="notes">
+      <h4>ALCHEMIST'S NOTES</h4>
+      <ul>
+        <li>Two of the same rough thing, worked together, become something finer.</li>
+        <li>Wood remembers fire; what's left behind is not ash.</li>
+        <li>Water given to stone forgets how to flow.</li>
+        <li>What is forged in embers may awaken a sleeping shard.</li>
+      </ul>
+    </div>
+    <div class="discovered" id="discoveredList"></div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="overlay hidden" id="helpOverlay">
+  <div class="modal">
+    <button class="close-x" id="closeHelp">×</button>
+    <h3>HOW TO PLAY</h3>
+    <p>Move with <b>WASD</b> or arrow keys. Trees, rocks, water and glowing shards block your path — click on one while standing next to it to gather its resource.</p>
+    <p>Visit a campfire to gather <b>fire</b>. Open the <b>Alchemy Lab</b> to combine two ingredients into something new. Not every combination works — experiment!</p>
+    <p>Follow the notes in the Lab for hints. Your goal is shown at the top of the screen. Craft the final item to complete your story.</p>
+  </div>
+</div>
+
+<!-- VICTORY MODAL -->
+<div class="overlay hidden" id="victoryOverlay">
+  <div class="modal victory">
+    <h3 id="victoryTitle">VICTORY</h3>
+    <p id="victoryText"></p>
+    <button id="btnPlayAgain">Choose another story</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================ CONFIG ============================ */
+
+const TILE = 42, COLS = 14, ROWS = 9;
+
+const THEMES = {
+  forest: {
+    id:'forest', name:'The Lost Grove',
+    tagline:'A withering forest calls for a spark of life.',
+    floorA:'#3f7a3f', floorB:'#356b35', floorEdge:'#2a5a2a',
+    essenceName:'Sunstone', essenceColor:'#ffd23f',
+    accent:'#7cb518', accent2:'#f2b705',
+    goalName:'Sunblossom Heart',
+    intro:"The great tree at the heart of the grove has gone silent, its leaves grey with a frost that shouldn't be. The forest spirits whisper that only an alchemist's hand can call it back to bloom.",
+    victory:"You press the Sunblossom Heart to the old tree's bark. Warmth floods the roots and green fire spreads up every branch. The grove exhales — and blooms again."
+  },
+  cavern: {
+    id:'cavern', name:'Deep Caverns',
+    tagline:'Something ancient sleeps beneath the stone.',
+    floorA:'#2b2740', floorB:'#241f36', floorEdge:'#1a1728',
+    essenceName:'Crystal Shard', essenceColor:'#5ee1ff',
+    accent:'#9d4edd', accent2:'#00e5ff',
+    goalName:'Crystal Heart',
+    intro:"Generations of miners speak of a heart of pure crystal buried far below, said to keep the caverns from collapsing. Lately, the tunnels have started to groan.",
+    victory:"The Crystal Heart pulses once in your palm, then locks into the cavern wall with a sound like a held breath finally released. The groaning stops. The caverns are safe."
+  },
+  sky: {
+    id:'sky', name:'Sky Isles',
+    tagline:'The bridge between the floating isles has crumbled.',
+    floorA:'#bcd9e6', floorB:'#a9cfe0', floorEdge:'#8fb9cc',
+    essenceName:'Windstone', essenceColor:'#ffb56b',
+    accent:'#5aa9c9', accent2:'#ffb56b',
+    goalName:'Stormcloud Core',
+    intro:"The isles used to drift close enough to walk between. Since the sky-bridge failed, they've been slowly floating apart. The elders say only a Stormcloud Core can knit the wind back together.",
+    victory:"You release the Stormcloud Core into open air. It unfurls into a ribbon of solid cloud, stretching between the isles. They drift apart no more."
+  }
+};
+
+// canonical item metadata. color/name for essence-line items is patched per theme.
+const ITEMS = {
+  wood:      {name:'Wood',      color:'#8a5a2b', shape:'cube'},
+  stone:     {name:'Stone',     color:'#8f8f8f', shape:'cube'},
+  water:     {name:'Water',     color:'#3aa0ff', shape:'drop'},
+  fiber:     {name:'Fiber',     color:'#6fbf3c', shape:'cube'},
+  fire:      {name:'Fire',      color:'#ff8a1e', shape:'flame'},
+  essence:   {name:'Essence',   color:'#ffd23f', shape:'gem'},
+  plank:     {name:'Plank',     color:'#c79a56', shape:'cube'},
+  brick:     {name:'Brick',     color:'#b5533c', shape:'cube'},
+  rope:      {name:'Rope',      color:'#d8c48a', shape:'cube'},
+  axe:       {name:'Axe',       color:'#b0b0b0', shape:'cube'},
+  clay:      {name:'Clay',      color:'#c98a5b', shape:'cube'},
+  charcoal:  {name:'Charcoal',  color:'#3a3a3a', shape:'cube'},
+  ladder:    {name:'Ladder',    color:'#a87b42', shape:'cube'},
+  pottery:   {name:'Pottery',   color:'#a34a3a', shape:'bottle'},
+  refined:   {name:'Refined Essence', color:'#ffe98a', shape:'gem'},
+  elixir:    {name:'Elixir',    color:'#8ad1ff', shape:'bottle'},
+  goal:      {name:'Goal Item', color:'#ffd700', shape:'star'}
+};
+
+const RECIPES = [
+  ['wood','wood','plank'],
+  ['stone','stone','brick'],
+  ['fiber','fiber','rope'],
+  ['wood','stone','axe'],
+  ['water','stone','clay'],
+  ['plank','rope','ladder'],
+  ['clay','fire','pottery'],
+  ['wood','fire','charcoal'],
+  ['charcoal','essence','refined'],
+  ['refined','water','elixir'],
+  ['elixir','pottery','goal']
+];
+
+/* ============================ STATE ============================ */
+
+let theme = null;
+let map = [];          // array of {type, respawnStep, hint}
+let player = {x:0,y:0,facing:1,walkFrame:0};
+let inventory = {};
+let discovered = new Set();
+let stepCounter = 0;
+let lastFireStep = -999;
+let lastMoveTime = 0;
+const MOVE_INTERVAL = 130;
+let selectedSlots = []; // up to 2 item ids
+let ctx, canvas;
+let animT = 0;
+
+/* ============================ SETUP: START SCREEN ============================ */
+
+function iconCanvas(id, size){
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const cx = c.getContext('2d');
+  cx.imageSmoothingEnabled = false;
+  drawItemIcon(cx, id, size);
+  return c;
+}
+
+function buildStartCards(){
+  const row = document.getElementById('cardRow');
+  row.innerHTML = '';
+  Object.values(THEMES).forEach(t=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.tabIndex = 0;
+
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.textContent = t.id.toUpperCase();
+    card.appendChild(tag);
+
+    const cvs = document.createElement('canvas');
+    cvs.width = 96; cvs.height = 96;
+    card.appendChild(cvs);
+
+    const h2 = document.createElement('h2');
+    h2.textContent = t.name;
+    card.appendChild(h2);
+
+    const p = document.createElement('p');
+    p.textContent = t.tagline + ' ' + t.intro;
+    card.appendChild(p);
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Begin Story';
+    btn.addEventListener('click', ()=>startGame(t.id));
+    card.appendChild(btn);
+
+    card.addEventListener('keypress', e=>{ if(e.key==='Enter') startGame(t.id); });
+
+    row.appendChild(card);
+
+    // draw a little preview scene: floor + essence gem + player
+    const pc = cvs.getContext('2d');
+    pc.imageSmoothingEnabled = false;
+    for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+      pc.fillStyle = (i+j)%2===0 ? t.floorA : t.floorB;
+      pc.fillRect(i*24,j*24,24,24);
+    }
+    drawGemShape(pc, 48-11, 48-11, 22, t.essenceColor);
+    drawPlayerSprite(pc, 8, 8, 28, t.accent, 0, 1);
+  });
+}
+
+/* ============================ MAP GENERATION ============================ */
+
+function generateMap(){
+  map = new Array(COLS*ROWS).fill(null).map(()=>({type:'floor', respawnStep:0}));
+  const idxOf = (x,y)=>y*COLS+x;
+  const cx0 = Math.floor(COLS/2), cy0 = Math.floor(ROWS/2);
+
+  // keep a 3x3 zone around center clear for spawn
+  const clear = new Set();
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++) clear.add(idxOf(cx0+dx,cy0+dy));
+
+  const pool = [];
+  for(let i=0;i<map.length;i++) if(!clear.has(i)) pool.push(i);
+  shuffle(pool);
+
+  function place(type,count){
+    for(let k=0;k<count;k++){
+      const i = pool.pop();
+      if(i===undefined) return;
+      map[i] = {type, respawnStep:0};
+    }
+  }
+  place('tree', 9);
+  place('rock', 7);
+  place('water', 5);
+  place('fiber', 8);
+  place('essence', 5);
+
+  // fixed campfire near player spawn, guaranteed reachable
+  map[idxOf(cx0+1, cy0)] = {type:'campfire', respawnStep:0};
+
+  player.x = cx0; player.y = cy0;
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+}
+
+/* ============================ GAME START ============================ */
+
+function startGame(themeId){
+  theme = THEMES[themeId];
+  // patch theme-dependent item metadata
+  ITEMS.essence.color = theme.essenceColor;
+  ITEMS.essence.name = theme.essenceName;
+  ITEMS.refined.color = shade(theme.essenceColor, 1.15);
+  ITEMS.refined.name = 'Refined ' + theme.essenceName;
+  ITEMS.elixir.color = theme.accent2;
+  ITEMS.elixir.name = theme.name + ' Elixir';
+  ITEMS.goal.name = theme.goalName;
+
+  inventory = {};
+  discovered = new Set();
+  stepCounter = 0;
+  lastFireStep = -999;
+  selectedSlots = [];
+
+  document.body.setAttribute('data-theme', theme.id);
+  generateMap();
+
+  document.getElementById('screen-start').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  document.getElementById('hudStoryName').textContent = theme.name.toUpperCase();
+  updateGoalHud();
+  showToast(theme.intro);
+
+  canvas = document.getElementById('worldCanvas');
+  canvas.width = COLS*TILE;
+  canvas.height = ROWS*TILE;
+  ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  canvas.addEventListener('click', onCanvasClick);
+
+  renderInventory();
+  requestAnimationFrame(loop);
+}
+
+function shade(hex, factor){
+  const c = hex.replace('#','');
+  const r = Math.min(255, Math.round(parseInt(c.substr(0,2),16)*factor));
+  const g = Math.min(255, Math.round(parseInt(c.substr(2,2),16)*factor));
+  const b = Math.min(255, Math.round(parseInt(c.substr(4,2),16)*factor));
+  return `rgb(${r},${g},${b})`;
+}
+
+function updateGoalHud(){
+  const tierLabel = tierHint();
+  document.getElementById('hudGoal').innerHTML = `Goal: <b>Craft the ${theme.goalName}</b> — ${tierLabel}`;
+}
+function tierHint(){
+  if(inventory.goal) return "you have done it!";
+  if(inventory.elixir || inventory.pottery) return "the final combination is close.";
+  if(inventory.refined) return "something has been refined... what does it thirst for?";
+  if(inventory.charcoal || inventory.essence) return "the fire and the shard both matter.";
+  return "gather, then experiment in the Lab.";
+}
+
+/* ============================ RENDERING: WORLD ============================ */
+
+function loop(ts){
+  animT = ts||0;
+  drawWorld();
+  requestAnimationFrame(loop);
+}
+
+function drawWorld(){
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const t = map[y*COLS+x];
+      drawFloor(x,y);
+      drawTileContent(x,y,t);
+    }
+  }
+  drawPlayer();
+}
+
+function drawFloor(x,y){
+  ctx.fillStyle = (x+y)%2===0 ? theme.floorA : theme.floorB;
+  ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+  ctx.strokeStyle = theme.floorEdge;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x*TILE+0.5, y*TILE+0.5, TILE-1, TILE-1);
+}
+
+function drawTileContent(x,y,t){
+  const px = x*TILE, py = y*TILE;
+  switch(t.type){
+    case 'tree': drawTree(px,py); break;
+    case 'rock': drawRock(px,py); break;
+    case 'water': drawWater(px,py); break;
+    case 'fiber': drawFiber(px,py); break;
+    case 'campfire': drawCampfire(px,py); break;
+    case 'essence': drawEssenceNode(px,py); break;
+    default: break;
+  }
+}
+
+function drawTree(px,py){
+  ctx.fillStyle = '#5a3a1e';
+  ctx.fillRect(px+TILE*0.42, py+TILE*0.55, TILE*0.16, TILE*0.4);
+  ctx.fillStyle = '#2f6b2f';
+  ctx.fillRect(px+TILE*0.15, py+TILE*0.10, TILE*0.7, TILE*0.28);
+  ctx.fillRect(px+TILE*0.08, py+TILE*0.28, TILE*0.84, TILE*0.24);
+  ctx.fillStyle = '#3d8a3d';
+  ctx.fillRect(px+TILE*0.20, py+TILE*0.14, TILE*0.3, TILE*0.14);
+}
+
+function drawRock(px,py){
+  ctx.fillStyle = '#6f6f6f';
+  ctx.fillRect(px+TILE*0.15, py+TILE*0.35, TILE*0.7, TILE*0.5);
+  ctx.fillStyle = '#8a8a8a';
+  ctx.fillRect(px+TILE*0.2, py+TILE*0.25, TILE*0.35, TILE*0.3);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(px+TILE*0.2, py+TILE*0.75, TILE*0.6, TILE*0.1);
+}
+
+function drawWater(px,py){
+  ctx.fillStyle = '#2f7fd1';
+  ctx.fillRect(px+2, py+2, TILE-4, TILE-4);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
+  const offset = (animT/400)%TILE;
+  ctx.beginPath();
+  ctx.moveTo(px+4, py+TILE*0.4+Math.sin(offset)*2);
+  ctx.lineTo(px+TILE-4, py+TILE*0.4+Math.sin(offset+1)*2);
+  ctx.moveTo(px+4, py+TILE*0.7+Math.sin(offset+2)*2);
+  ctx.lineTo(px+TILE-4, py+TILE*0.7+Math.sin(offset+3)*2);
+  ctx.stroke();
+}
+
+function drawFiber(px,py){
+  ctx.strokeStyle = '#4c9a2a';
+  ctx.lineWidth = 3;
+  for(let i=0;i<4;i++){
+    const bx = px+TILE*0.25+i*TILE*0.16;
+    ctx.beginPath();
+    ctx.moveTo(bx, py+TILE*0.85);
+    ctx.lineTo(bx+3, py+TILE*0.5);
+    ctx.stroke();
+  }
+}
+
+function drawCampfire(px,py){
+  ctx.fillStyle = '#5a3a1e';
+  ctx.fillRect(px+TILE*0.25, py+TILE*0.65, TILE*0.5, TILE*0.08);
+  ctx.fillRect(px+TILE*0.3, py+TILE*0.55, TILE*0.4, TILE*0.08);
+  const flick = 0.85 + Math.sin(animT/90)*0.15;
+  ctx.fillStyle = '#ff8a1e';
+  ctx.beginPath();
+  ctx.moveTo(px+TILE*0.5, py+TILE*(0.62-0.3*flick));
+  ctx.lineTo(px+TILE*0.35, py+TILE*0.62);
+  ctx.lineTo(px+TILE*0.65, py+TILE*0.62);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffd23f';
+  ctx.beginPath();
+  ctx.moveTo(px+TILE*0.5, py+TILE*(0.66-0.16*flick));
+  ctx.lineTo(px+TILE*0.42, py+TILE*0.62);
+  ctx.lineTo(px+TILE*0.58, py+TILE*0.62);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawEssenceNode(px,py){
+  const pulse = 0.6+Math.sin(animT/300)*0.4;
+  ctx.save();
+  ctx.shadowColor = theme.essenceColor;
+  ctx.shadowBlur = 8+pulse*8;
+  drawGemShape(ctx, px+TILE*0.22, py+TILE*0.22, TILE*0.56, theme.essenceColor);
+  ctx.restore();
+}
+
+function drawGemShape(c, x, y, size, color){
+  const cx = x+size/2, cy = y+size/2;
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(cx, y);
+  c.lineTo(x+size, cy);
+  c.lineTo(cx, y+size);
+  c.lineTo(x, cy);
+  c.closePath();
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.45)';
+  c.beginPath();
+  c.moveTo(cx, y);
+  c.lineTo(cx+size*0.18, cy-size*0.05);
+  c.lineTo(cx, cy);
+  c.lineTo(cx-size*0.18, cy-size*0.05);
+  c.closePath();
+  c.fill();
+}
+
+/* ---- player sprite: 8x8 pixel grid ---- */
+const PLAYER_FRAMES = [
+  [ 'XHHHHHHX','XHHHHHHX','XFFFFFFX','XFFFFFFX','XXBBBBXX','XBBBBBBX','XBBBBBBX','XPPXXPPX' ],
+  [ 'XHHHHHHX','XHHHHHHX','XFFFFFFX','XFFFFFFX','XXBBBBXX','XBBBBBBX','XBBBBBBX','XXPPPPXX' ]
+];
+function drawPlayerSprite(c, px, py, size, bodyColor, frame, facing){
+  const grid = PLAYER_FRAMES[frame%2];
+  const unit = size/8;
+  const colors = {H:'#4a2c17', F:'#f2c894', B:bodyColor, P:'#33302a'};
+  c.save();
+  if(facing<0){ c.translate(px*2+size, 0); c.scale(-1,1); }
+  for(let r=0;r<8;r++){
+    for(let col=0;col<8;col++){
+      const ch = grid[r][col];
+      if(ch==='X') continue;
+      c.fillStyle = colors[ch];
+      c.fillRect(px+col*unit, py+r*unit, unit+0.5, unit+0.5);
+    }
+  }
+  c.restore();
+}
+
+function drawPlayer(){
+  const px = player.x*TILE + TILE*0.12;
+  const py = player.y*TILE + TILE*0.08;
+  const bob = player.walkFrame%2;
+  drawPlayerSprite(ctx, px, py, TILE*0.76, theme.accent, bob, player.facing);
+}
+
+/* ============================ ICONS (inventory) ============================ */
+
+function drawItemIcon(c, id, size){
+  const item = ITEMS[id];
+  if(!item) return;
+  c.clearRect(0,0,size,size);
+  switch(item.shape){
+    case 'cube': drawCubeIcon(c,item.color,size); break;
+    case 'gem': c.save(); c.shadowColor=item.color; c.shadowBlur=size*0.25; drawGemShape(c, size*0.12, size*0.12, size*0.76, item.color); c.restore(); break;
+    case 'drop': drawDropIcon(c,item.color,size); break;
+    case 'flame': drawFlameIcon(c,item.color,size); break;
+    case 'bottle': drawBottleIcon(c,item.color,size); break;
+    case 'star': drawStarIcon(c,item.color,size); break;
+  }
+}
+
+function drawCubeIcon(c,color,size){
+  const m = size*0.12;
+  c.fillStyle = shade(color,0.7);
+  c.fillRect(m,m,size-2*m,size-2*m);
+  c.fillStyle = color;
+  c.fillRect(m+2,m+2,size-2*m-6,size-2*m-6);
+  c.fillStyle = shade(color,1.35);
+  c.fillRect(m+2,m+2,size-2*m-6, (size-2*m-6)*0.3);
+}
+
+function drawDropIcon(c,color,size){
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(size/2, size*0.12);
+  c.quadraticCurveTo(size*0.85, size*0.55, size*0.5, size*0.9);
+  c.quadraticCurveTo(size*0.15, size*0.55, size/2, size*0.12);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.4)';
+  c.beginPath();
+  c.arc(size*0.42, size*0.5, size*0.08, 0, Math.PI*2);
+  c.fill();
+}
+
+function drawFlameIcon(c,color,size){
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(size*0.5, size*0.1);
+  c.quadraticCurveTo(size*0.85, size*0.5, size*0.5, size*0.92);
+  c.quadraticCurveTo(size*0.15, size*0.5, size*0.5, size*0.1);
+  c.fill();
+  c.fillStyle = '#ffe98a';
+  c.beginPath();
+  c.moveTo(size*0.5, size*0.4);
+  c.quadraticCurveTo(size*0.65, size*0.6, size*0.5, size*0.8);
+  c.quadraticCurveTo(size*0.4, size*0.6, size*0.5, size*0.4);
+  c.fill();
+}
+
+function drawBottleIcon(c,color,size){
+  c.fillStyle = '#cfd6dd';
+  c.fillRect(size*0.4, size*0.08, size*0.2, size*0.18);
+  c.fillRect(size*0.28, size*0.24, size*0.44, size*0.62);
+  c.fillStyle = color;
+  c.fillRect(size*0.3, size*0.4, size*0.4, size*0.44);
+  c.strokeStyle = 'rgba(255,255,255,0.5)';
+  c.lineWidth = 2;
+  c.strokeRect(size*0.28, size*0.24, size*0.44, size*0.62);
+}
+
+function drawStarIcon(c,color,size){
+  const cx=size/2, cy=size/2, spikes=8, outer=size*0.46, inner=size*0.2;
+  c.save();
+  c.shadowColor = color; c.shadowBlur = size*0.3;
+  c.fillStyle = color;
+  c.beginPath();
+  for(let i=0;i<spikes*2;i++){
+    const r = i%2===0?outer:inner;
+    const a = (Math.PI/spikes)*i - Math.PI/2;
+    c.lineTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+  }
+  c.closePath(); c.fill();
+  c.restore();
+}
+
+/* ============================ INPUT ============================ */
+
+document.addEventListener('keydown', (e)=>{
+  if(!theme) return;
+  if(document.querySelectorAll('.overlay:not(.hidden)').length) return;
+  const now = performance.now();
+  let dx=0, dy=0;
+  if(e.key==='w'||e.key==='ArrowUp'){ dy=-1; }
+  else if(e.key==='s'||e.key==='ArrowDown'){ dy=1; }
+  else if(e.key==='a'||e.key==='ArrowLeft'){ dx=-1; player.facing=-1; }
+  else if(e.key==='d'||e.key==='ArrowRight'){ dx=1; player.facing=1; }
+  else return;
+  e.preventDefault();
+  if(now-lastMoveTime < MOVE_INTERVAL) return;
+  lastMoveTime = now;
+  tryMove(dx,dy);
+});
+
+function tryMove(dx,dy){
+  const nx = Math.min(COLS-1, Math.max(0, player.x+dx));
+  const ny = Math.min(ROWS-1, Math.max(0, player.y+dy));
+  const t = map[ny*COLS+nx];
+  if(!t) return;
+  const blocked = ['tree','rock','water','campfire'].includes(t.type);
+  if(blocked) return;
+  player.x = nx; player.y = ny;
+  player.walkFrame++;
+  stepCounter++;
+  checkRespawns();
+}
+
+function checkRespawns(){
+  map.forEach(t=>{
+    if(t.type==='floor' && t.respawnStep && stepCounter>=t.respawnStep){
+      t.type = t.originalType;
+      t.respawnStep = 0;
+    }
+  });
+}
+
+function onCanvasClick(e){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+  const mx = (e.clientX-rect.left)*scaleX, my = (e.clientY-rect.top)*scaleY;
+  const tx = Math.floor(mx/TILE), ty = Math.floor(my/TILE);
+  if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return;
+  const dist = Math.max(Math.abs(tx-player.x), Math.abs(ty-player.y));
+  if(dist>1) { showToast("Too far away — move closer first."); return; }
+  gather(tx,ty);
+}
+
+function gather(x,y){
+  const idx = y*COLS+x;
+  const t = map[idx];
+  const gatherMap = { tree:'wood', rock:'stone', water:'water', fiber:'fiber', essence:'essence', campfire:'fire' };
+  const item = gatherMap[t.type];
+  if(!item) { showToast("Nothing to gather here."); return; }
+
+  if(t.type==='campfire'){
+    if(stepCounter - lastFireStep < 3){ showToast("The fire needs a moment to build back up."); return; }
+    lastFireStep = stepCounter;
+  }
+
+  addItem(item, 1);
+  floatText(x,y, '+1 ' + ITEMS[item].name);
+
+  if(t.type!=='campfire'){
+    t.originalType = t.type;
+    t.type = 'floor';
+    t.respawnStep = stepCounter + 14 + Math.floor(Math.random()*10);
+  }
+  renderInventory();
+}
+
+function addItem(id, n){
+  inventory[id] = (inventory[id]||0)+n;
+  updateGoalHud();
+}
+
+function floatText(x,y,text){
+  const wrap = document.getElementById('floatingText');
+  const rectScale = canvas.getBoundingClientRect().width / canvas.width;
+  const el = document.createElement('div');
+  el.className = 'float-msg';
+  el.textContent = text;
+  el.style.left = (x*TILE*rectScale) + 'px';
+  el.style.top = (y*TILE*rectScale) + 'px';
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+
+function showToast(msg){
+  document.getElementById('toast').innerHTML = msg;
+}
+
+/* ============================ INVENTORY UI ============================ */
+
+function renderInventory(){
+  const bar = document.getElementById('invBar');
+  bar.innerHTML = '';
+  const ids = Object.keys(inventory).filter(id=>inventory[id]>0);
+  if(ids.length===0){
+    bar.innerHTML = '<div class="controls-hint" style="margin:0;">Your bag is empty. Go gather something!</div>';
+    return;
+  }
+  ids.forEach(id=>{
+    const slot = document.createElement('div');
+    slot.className = 'inv-slot';
+    slot.appendChild(iconCanvas(id,32));
+    const label = document.createElement('div');
+    label.textContent = `${ITEMS[id].name} x${inventory[id]}`;
+    slot.appendChild(label);
+    bar.appendChild(slot);
+  });
+}
+
+/* ============================ ALCHEMY LAB ============================ */
+
+const labOverlay = document.getElementById('labOverlay');
+
+function openLab(){
+  selectedSlots = [];
+  renderLab();
+  labOverlay.classList.remove('hidden');
+}
+function closeLab(){ labOverlay.classList.add('hidden'); }
+
+document.getElementById('btnLab').addEventListener('click', openLab);
+document.getElementById('closeLab').addEventListener('click', closeLab);
+document.getElementById('btnClearSlots').addEventListener('click', ()=>{ selectedSlots=[]; renderLab(); });
+labOverlay.addEventListener('click', (e)=>{ if(e.target===labOverlay) closeLab(); });
+
+function renderLab(){
+  // slots
+  [0,1].forEach(i=>{
+    const s = document.getElementById('slot'+i);
+    s.innerHTML = '';
+    s.classList.toggle('filled', !!selectedSlots[i]);
+    if(selectedSlots[i]) s.appendChild(iconCanvas(selectedSlots[i], 40));
+  });
+  document.getElementById('slotResult').innerHTML = '';
+
+  // inventory grid
+  const grid = document.getElementById('labInv');
+  grid.innerHTML = '';
+  const ids = Object.keys(inventory).filter(id=>inventory[id]>0);
+  if(ids.length===0){
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:10px;">Nothing to combine yet — go gather some resources.</div>';
+  }
+  ids.forEach(id=>{
+    const usedCount = selectedSlots.filter(s=>s===id).length;
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (usedCount>0 ? ' selected' : '');
+    chip.tabIndex = 0;
+    chip.appendChild(iconCanvas(id,32));
+    const lbl = document.createElement('div');
+    lbl.textContent = `${ITEMS[id].name} (${inventory[id]-usedCount})`;
+    chip.appendChild(lbl);
+    chip.addEventListener('click', ()=>selectIngredient(id));
+    grid.appendChild(chip);
+  });
+
+  // discovered recipes
+  const disc = document.getElementById('discoveredList');
+  if(discovered.size===0){ disc.innerHTML = ''; }
+  else{
+    disc.innerHTML = '<h4 class="pixel-font" style="font-size:12px;color:var(--muted);">DISCOVERED</h4>';
+    discovered.forEach(key=>{
+      const [a,b,r] = key.split('|');
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.textContent = `${ITEMS[a].name} + ${ITEMS[b].name} → ${ITEMS[r].name}`;
+      disc.appendChild(row);
+    });
+  }
+}
+
+function selectIngredient(id){
+  const available = inventory[id]||0;
+  const used = selectedSlots.filter(s=>s===id).length;
+  if(selectedSlots.length>=2) return;
+  if(used>=available) return;
+  selectedSlots.push(id);
+  renderLab();
+}
+
+document.getElementById('btnCombine').addEventListener('click', ()=>{
+  if(selectedSlots.length<2){ flashResult(null,"Choose two ingredients first."); return; }
+  const [a,b] = selectedSlots;
+  const recipe = RECIPES.find(r =>
+    (r[0]===a && r[1]===b) || (r[0]===b && r[1]===a)
+  );
+  if(!recipe){
+    flashResult(null, "Nothing happens... maybe try something else.");
+    selectedSlots = [];
+    renderLab();
+    return;
+  }
+  // consume
+  inventory[a]--; inventory[b]--;
+  const result = recipe[2];
+  addItem(result,1);
+  discovered.add([recipe[0],recipe[1],recipe[2]].join('|'));
+  flashResult(result, `You created ${ITEMS[result].name}!`);
+  selectedSlots = [];
+  renderInventory();
+  renderLab();
+
+  if(result==='goal'){
+    setTimeout(()=>{ closeLab(); showVictory(); }, 700);
+  }
+});
+
+function flashResult(id, message){
+  const slot = document.getElementById('slotResult');
+  slot.innerHTML = '';
+  if(id) slot.appendChild(iconCanvas(id,40));
+  showToast(message);
+}
+
+/* ============================ HELP / RESTART / VICTORY ============================ */
+
+document.getElementById('btnHelp').addEventListener('click', ()=>document.getElementById('helpOverlay').classList.remove('hidden'));
+document.getElementById('closeHelp').addEventListener('click', ()=>document.getElementById('helpOverlay').classList.add('hidden'));
+document.getElementById('helpOverlay').addEventListener('click', (e)=>{ if(e.target.id==='helpOverlay') e.currentTarget.classList.add('hidden'); });
+
+document.getElementById('btnRestart').addEventListener('click', ()=>{
+  if(confirm('Leave this story and pick a new one?')) goToStart();
+});
+
+function goToStart(){
+  document.getElementById('game').classList.add('hidden');
+  document.getElementById('victoryOverlay').classList.add('hidden');
+  document.getElementById('screen-start').classList.remove('hidden');
+  theme = null;
+}
+
+function showVictory(){
+  document.getElementById('victoryTitle').textContent = theme.goalName.toUpperCase() + ' COMPLETE';
+  document.getElementById('victoryText').textContent = theme.victory;
+  document.getElementById('victoryOverlay').classList.remove('hidden');
+}
+document.getElementById('btnPlayAgain').addEventListener('click', goToStart);
+
+/* ============================ INIT ============================ */
+buildStartCards();
+
+})();
+</script>
+</body>
+</html>
